@@ -196,7 +196,8 @@ export default function LoginPage() {
             <h1 className="text-4xl font-bold text-gray-800 text-center mb-4">
               رمز التحقق{" "}
             </h1>            <p className="text-center text-gray-600 mb-12">
-              ادخل رمز التحقق المرسل الى رقم هاتفك{" "}
+              ادخل رمز التحقق المرسل الى بريدك الالكتروني{" "}
+              <span className="px-2">{email}</span>
             </p>
 
             <form onSubmit={handleOtpSubmit} className="w-full max-w-md">
