@@ -197,7 +197,7 @@ export default function LoginPage() {
             </p>
 
             <form onSubmit={handleOtpSubmit} className="w-full max-w-md">
-              <div className="mb-8">
+              <div className="mb-8" dir="ltr">
                 <label className="block text-right text-gray-700 font-medium mb-4">أدخل رمز التحقق</label>
                 <div className="flex gap-3 justify-center">
                   {otp.map((digit, index) => (
