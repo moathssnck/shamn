@@ -106,7 +106,6 @@ export default function LoginPage() {
       <div className="min-h-screen bg-blue-50 flex flex-col items-center justify-center" dir="rtl">
         <div className="flex flex-col items-center animate-pulse">
           <img src="file.svg" alt="llog" />
-
         </div>
       </div>
     )
