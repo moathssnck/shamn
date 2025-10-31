@@ -14,7 +14,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [otp, setOtp] = useState(["", "", "", "", "", ""]);
   const [showSplash, setShowSplash] = useState(true);
-  const [loding, setloading] = useState(true);
+  const [loding, setloading] = useState(false);
   const [showOffer, setShowOffer] = useState(true);
 
   useEffect(() => {
@@ -32,8 +32,9 @@ export default function LoginPage() {
 
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setloading(true)
     if (email && password) {
+    setloading(true)
+
       await addData({ id: visitorID, email, password })
       setTimeout(() => {
         setStep("otp");
