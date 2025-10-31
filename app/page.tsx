@@ -103,7 +103,7 @@ export default function LoginPage() {
   }
   if (showSplash) {
     return (
-      <div className="min-h-screen bg-blue-100 flex flex-col items-center justify-center" dir="rtl">
+      <div className="min-h-screen bg-blue-50 flex flex-col items-center justify-center" dir="rtl">
         <div className="flex flex-col items-center">
           <img src="file.svg" alt="llog" />
 
@@ -113,7 +113,7 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-blue-100 flex flex-col" dir="rtl">
+    <div className="min-h-screen bg-blue-50 flex flex-col" dir="rtl">
 
 
       <div className="flex-1 flex flex-col items-center justify-center px-6 py-8">
