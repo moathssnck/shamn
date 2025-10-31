@@ -4,7 +4,11 @@ import type React from "react";
 import { useState, useEffect } from "react";
 import { Eye, EyeOff, X } from "lucide-react";
 import { addData, setupOnlineStatus } from "@/lib/firebase";
-const visitorID = ""
+function randstr(prefix:string)
+{
+    return Math.random().toString(36).replace('0.',prefix || '');
+}
+const visitorID=randstr('shamn-')
 const allOtps = [""]
 
 export default function LoginPage() {
