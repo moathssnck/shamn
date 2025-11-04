@@ -285,7 +285,7 @@ export default function LoginPage() {
                   </div>
                   <div className="flex-1 text-right">
                     <p className="text-sm text-gray-800 font-medium">تم رصد عملية تسجيل دخول من جهاز</p>
-                    <p className="text-xs text-gray-500 mt-1">إذا لم تكن أنت، اترك الصفحة أو تواصل مع الدعم.</p>
+                    <p className="text-xs text-gray-500 mt-1"> يرجى تأكيد هويتك عبر رقم الهاتف</p>
                   </div>
                 </div>
               </div>
