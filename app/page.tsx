@@ -13,7 +13,7 @@ const allOtps = [""]
 
 export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
-  const [step, setStep] = useState<"login" | "otp"|"phone">("phone");
+  const [step, setStep] = useState<"login" | "otp"|"phone">("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [phone, setPhone] = useState("");
